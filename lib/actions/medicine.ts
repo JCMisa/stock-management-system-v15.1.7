@@ -4,12 +4,15 @@ import { db } from "@/utils/db";
 import { parseStringify } from "../utils";
 import { Medicine } from "@/utils/schema";
 import moment from "moment";
-import { eq, sum } from "drizzle-orm";
+import { asc, eq, sum } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export const getAllMedicines = async () => {
   try {
-    const data = await db.select().from(Medicine);
+    const data = await db
+      .select()
+      .from(Medicine)
+      .orderBy(asc(Medicine.batchNumber));
 
     return parseStringify({ data: data });
   } catch (error) {

@@ -34,12 +34,18 @@ const EditTransaction = ({ params }: PageProps) => {
   const [transactionId, setTransactionId] = useState<string>("");
 
   const [patientsList, setPatientsList] = useState<PatientType[]>([]);
+  const [filteredPatients, setFilteredPatients] = useState<PatientType[]>([]);
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [date, setDate] = useState<Date | undefined>(undefined);
+
+  const [filteredMedicines, setFilteredMedicines] = useState<MedicineType[]>(
+    []
+  );
+  const [searchTermMedicine, setSearchTermMedicine] = useState<string>("");
+
   const [currentUser, setCurrentUser] = useState<UserType>();
   const [medicinesList, setMedicinesList] = useState<MedicineType[]>([]);
   const [patientId, setPatientId] = useState<string>("");
-  const [filteredPatients, setFilteredPatients] = useState(patientsList);
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [date, setDate] = useState<Date | undefined>(new Date());
   const [patientPrescription, setPatientPrescription] = useState<string>("");
   const [medicineData, setMedicineData] = useState([
     { medicineId: "", quantity: "", medicineName: "" },
@@ -84,27 +90,30 @@ const EditTransaction = ({ params }: PageProps) => {
     fetchTransactionData();
   }, [transactionId]);
 
-  const getPatientsList = async () => {
-    try {
-      setLoading(true);
-      const result = await getAllPatients();
-      if (result?.data !== null) {
-        setPatientsList(result.data);
-      } else {
-        setPatientsList([]);
-      }
-    } catch {
-      toast(
-        <p className="text-sm font-bold text-red-500">
-          Internal error occurred while fetching all patients
-        </p>
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // fetching the patients from Patient table
   useEffect(() => {
+    const getPatientsList = async () => {
+      try {
+        setLoading(true);
+
+        const result = await getAllPatients();
+        if (result?.data !== null) {
+          setPatientsList(result.data);
+          setFilteredPatients(result.data); // Initialize filteredPatients with all patients
+        } else {
+          setPatientsList([]);
+          setFilteredPatients([]);
+        }
+      } catch {
+        toast(
+          <p className="text-sm font-bold text-red-500">
+            Internal error occurred while fetching all patients
+          </p>
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
     getPatientsList();
   }, []);
 
@@ -120,88 +129,97 @@ const EditTransaction = ({ params }: PageProps) => {
     }
   }, [patientId, patientsList]);
 
+  // filtering patients with calendar and search bar at the same time
   useEffect(() => {
-    setFilteredPatients(patientsList);
-  }, [patientsList]);
+    const formatDate = (date: Date | undefined): string => {
+      return date ? moment(date).format("MM-DD-YYYY") : "";
+    };
 
-  useEffect(() => {
-    if (date) {
-      const formatedDate = moment(date).format("MM-DD-YYYY");
-      if (formatedDate === "") {
-        setFilteredPatients(patientsList);
-      } else {
-        const filtered = patientsList.filter((patient) =>
-          patient?.createdAt.toLowerCase().includes(formatedDate)
+    const filterPatients = () => {
+      let filtered = patientsList;
+
+      // Filter by search term
+      if (searchTerm.trim() !== "") {
+        const formattedSearchTerm = searchTerm.toLowerCase();
+        filtered = filtered.filter((patient) =>
+          patient.fullname.toLowerCase().includes(formattedSearchTerm)
         );
-        setFilteredPatients(filtered);
       }
-    }
-  }, [date, patientsList]);
 
-  const handleSearch = () => {
-    if (searchTerm !== "") {
-      const formattedSearchTerm = searchTerm.toLowerCase();
-      if (formattedSearchTerm.trim() === "") {
-        setFilteredPatients(patientsList);
-      } else {
-        const filtered = patientsList.filter((patient) =>
-          patient?.fullname.toLowerCase().includes(formattedSearchTerm)
-        );
-        setFilteredPatients(filtered);
+      // Filter by date
+      if (date) {
+        const selectedDate = formatDate(date);
+        filtered = filtered.filter((patient) => {
+          const patientDate = moment(patient.createdAt).format("MM-DD-YYYY");
+          return patientDate === selectedDate;
+        });
       }
-    }
-  };
 
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter") {
-      handleSearch();
-    }
-  };
+      setFilteredPatients(filtered);
+    };
 
-  const getUser = async () => {
-    try {
-      setLoading(true);
-      const result = await getCurrentUser();
-      if (result?.data !== null) {
-        setCurrentUser(result?.data);
-      }
-    } catch {
-      toast(
-        <p className="text-sm font-bold text-red-500">
-          Internal error occurred while fetching current user
-        </p>
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+    filterPatients();
+  }, [searchTerm, date, patientsList]);
 
+  // get current user
   useEffect(() => {
+    const getUser = async () => {
+      try {
+        setLoading(true);
+        const result = await getCurrentUser();
+        if (result?.data !== null) {
+          setCurrentUser(result?.data);
+        }
+      } catch {
+        toast(
+          <p className="text-sm font-bold text-red-500">
+            Internal error occurred while fetching current user
+          </p>
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
     getUser();
   }, []);
 
-  const getMedicinesList = async () => {
-    try {
-      setLoading(true);
-      const result = await getAllMedicines();
-      if (result?.data !== null) {
-        setMedicinesList(result?.data);
-      }
-    } catch {
-      toast(
-        <p className="text-sm font-bold text-red-500">
-          Internal error occurred while fetching all medicines
-        </p>
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // get all medicines
   useEffect(() => {
+    const getMedicinesList = async () => {
+      try {
+        setLoading(true);
+        const result = await getAllMedicines();
+        if (result?.data !== null) {
+          setMedicinesList(result?.data);
+        }
+      } catch {
+        toast(
+          <p className="text-sm font-bold text-red-500">
+            Internal error occurred while fetching all medicines
+          </p>
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
     getMedicinesList();
   }, []);
 
+  // filter all medicines based on the inputted medicine name
+  useEffect(() => {
+    if (searchTermMedicine.trim() === "") {
+      setFilteredMedicines(medicinesList);
+    } else {
+      const formattedMedicine = searchTermMedicine.toLowerCase();
+      const filtered = medicinesList.filter((medicine) =>
+        medicine?.name.toLowerCase().includes(formattedMedicine)
+      );
+      setFilteredMedicines(filtered);
+    }
+  }, [searchTermMedicine, medicinesList]);
+
+  // assign prescription
   const getPatientPrescription = async () => {
     try {
       const result = await getPatientLayout(patientId);
@@ -216,7 +234,6 @@ const EditTransaction = ({ params }: PageProps) => {
       );
     }
   };
-
   useEffect(() => {
     if (patientId) {
       getPatientPrescription();
@@ -334,71 +351,81 @@ const EditTransaction = ({ params }: PageProps) => {
               </SelectTrigger>
               <SelectContent>
                 <div className="mb-3 flex items-start justify-between w-full gap-3 bg-light-100 dark:bg-dark-100">
-                  <div className="flex items-center border border-gray-500 dark:border-gray-400 rounded-lg px-3 w-full">
-                    <Search
-                      onClick={handleSearch}
-                      className="cursor-pointer hover:scale-95"
+                  <div className="flex items-start gap-2">
+                    {date && (
+                      <Button
+                        type="button"
+                        onClick={() => setDate(undefined)}
+                        variant={"destructive"}
+                      >
+                        X
+                      </Button>
+                    )}
+                    <Calendar
+                      mode="single"
+                      selected={date}
+                      onSelect={setDate}
+                      className="rounded-md border"
                     />
+                  </div>
+                  <div className="flex items-center border border-gray-500 dark:border-gray-400 rounded-lg px-3 w-full">
+                    <Search className="cursor-pointer hover:scale-95" />
                     <Input
                       type="text"
                       className="border-none bg-light-100 dark:bg-dark-100"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      onKeyDown={handleKeyDown}
                       placeholder="Search patients"
                     />
                   </div>
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={setDate}
-                    className="rounded-md border"
-                  />
                 </div>
                 <div className="min-h-52 max-h-52 overflow-auto card-scroll">
-                  {(filteredPatients?.length > 0
-                    ? filteredPatients
-                    : patientsList
-                  )?.map((patient) => (
-                    <SelectItem
-                      key={patient?.patientId}
-                      value={patient?.patientId}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1">
-                          {patient?.imageUrl ? (
-                            <Image
-                              src={patient?.imageUrl}
-                              loading="lazy"
-                              placeholder="blur"
-                              blurDataURL="/blur.jpg"
-                              alt="avatar"
-                              width={1000}
-                              height={1000}
-                              className="w-7 h-7 rounded-full"
-                            />
-                          ) : (
-                            <Image
-                              src={"/empty-img.png"}
-                              loading="lazy"
-                              placeholder="blur"
-                              blurDataURL="/blur.jpg"
-                              alt="avatar"
-                              width={1000}
-                              height={1000}
-                              className="w-7 h-7 rounded-full"
-                            />
-                          )}
-                          <p className="text-sm">{patient?.fullname}</p>
-                        </div>
+                  {loading ? (
+                    <p>Loading patients...</p>
+                  ) : filteredPatients.length > 0 ? (
+                    filteredPatients.map((patient) => (
+                      <SelectItem
+                        key={patient?.patientId}
+                        value={patient?.patientId}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1">
+                            {patient?.imageUrl ? (
+                              <Image
+                                src={patient?.imageUrl}
+                                loading="lazy"
+                                placeholder="blur"
+                                blurDataURL="/blur.jpg"
+                                alt="avatar"
+                                width={1000}
+                                height={1000}
+                                className="w-7 h-7 rounded-full"
+                              />
+                            ) : (
+                              <Image
+                                src={"/empty-img.png"}
+                                loading="lazy"
+                                placeholder="blur"
+                                blurDataURL="/blur.jpg"
+                                alt="avatar"
+                                width={1000}
+                                height={1000}
+                                className="w-7 h-7 rounded-full"
+                              />
+                            )}
+                            <p className="text-sm">{patient?.fullname}</p>
+                          </div>
 
-                        <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                          Appointment date:{" "}
-                          {moment(patient?.createdAt).format("MMM-DD-YYYY")}
-                        </p>
-                      </div>
-                    </SelectItem>
-                  ))}
+                          <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                            Appointment date:{" "}
+                            {moment(patient?.createdAt).format("MMM-DD-YYYY")}
+                          </p>
+                        </div>
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <p>No patients found.</p>
+                  )}
                 </div>
               </SelectContent>
             </Select>
@@ -440,44 +467,71 @@ const EditTransaction = ({ params }: PageProps) => {
                           <SelectValue placeholder="Select medicines" />
                         </SelectTrigger>
                         <SelectContent>
-                          {medicinesList?.length > 0 &&
-                            medicinesList?.map((medicine) => (
+                          {/* search input for medicine */}
+                          <div className="flex items-center border border-gray-500 dark:border-gray-400 rounded-lg px-3 w-full">
+                            <Search className="cursor-pointer hover:scale-95" />
+                            <Input
+                              type="text"
+                              className="border-none bg-light dark:bg-dark"
+                              value={searchTermMedicine}
+                              onChange={(e) =>
+                                setSearchTermMedicine(e.target.value)
+                              }
+                              placeholder="Search medicines"
+                            />
+                          </div>
+                          {filteredMedicines?.length > 0 ? (
+                            filteredMedicines?.map((medicine) => (
                               <SelectItem
                                 key={medicine?.medicineId}
                                 value={medicine?.medicineId}
                               >
-                                <div className="flex items-center gap-2">
-                                  {medicine?.imageUrl ? (
-                                    <Image
-                                      src={medicine?.imageUrl}
-                                      loading="lazy"
-                                      placeholder="blur"
-                                      blurDataURL="/blur.jpg"
-                                      alt="avatar"
-                                      width={1000}
-                                      height={1000}
-                                      className="w-7 h-7 rounded-full"
-                                    />
-                                  ) : (
-                                    <Image
-                                      src={"/empty-img.png"}
-                                      loading="lazy"
-                                      placeholder="blur"
-                                      blurDataURL="/blur.jpg"
-                                      alt="avatar"
-                                      width={1000}
-                                      height={1000}
-                                      className="w-7 h-7 rounded-full"
-                                    />
-                                  )}
-                                  <p className="text-sm">{medicine?.name}</p>
+                                <div className="flex items-center justify-between gap-4">
+                                  <div className="flex items-center gap-2">
+                                    {medicine?.imageUrl ? (
+                                      <Image
+                                        src={medicine?.imageUrl}
+                                        loading="lazy"
+                                        placeholder="blur"
+                                        blurDataURL="/blur.jpg"
+                                        alt="avatar"
+                                        width={1000}
+                                        height={1000}
+                                        className="w-7 h-7 rounded-full"
+                                      />
+                                    ) : (
+                                      <Image
+                                        src={"/empty-img.png"}
+                                        loading="lazy"
+                                        placeholder="blur"
+                                        blurDataURL="/blur.jpg"
+                                        alt="avatar"
+                                        width={1000}
+                                        height={1000}
+                                        className="w-7 h-7 rounded-full"
+                                      />
+                                    )}
+                                    <p className="text-sm">{medicine?.name}</p>
+                                  </div>
+                                  <p className="text-xs text-muted-foreground">
+                                    BATCH{medicine?.batchNumber}
+                                  </p>
                                 </div>
                               </SelectItem>
-                            ))}
+                            ))
+                          ) : (
+                            // Render a disabled SelectItem to prevent errors
+                            <SelectItem disabled value="empty">
+                              <div className="py-2 px-3 text-center text-sm text-muted-foreground">
+                                No medicines found.
+                              </div>
+                            </SelectItem>
+                          )}
                         </SelectContent>
                       </Select>
                       <Input
                         name="quantity"
+                        min={0}
                         type="number"
                         value={val.quantity}
                         onChange={(e) => handleQuantityAndNameChange(e, i)}
