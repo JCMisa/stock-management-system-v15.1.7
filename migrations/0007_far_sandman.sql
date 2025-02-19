@@ -1,0 +1,1 @@
+ALTER TABLE "medicine" ALTER COLUMN "supplierId" DROP NOT NULL;

@@ -1,0 +1,1 @@
+ALTER TABLE "roleChangeRequest" ADD COLUMN "fileExtension" varchar;
