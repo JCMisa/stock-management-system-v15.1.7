@@ -191,6 +191,21 @@ export const columns: ColumnDef<any>[] = [
     ),
   },
   {
+    accessorKey: "batchNumber",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} title="Batch" />
+    ),
+    cell: ({ row }) => {
+      const batch = row.getValue("batchNumber") as string;
+
+      return (
+        <div className="flex w-[100px] items-center">
+          <span className="capitalize">BATCH{batch}</span>
+        </div>
+      );
+    },
+  },
+  {
     id: "actions",
     cell: ({ row }) => {
       const userRole = CurrentUserRole();

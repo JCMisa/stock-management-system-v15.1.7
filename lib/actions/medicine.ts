@@ -149,6 +149,95 @@ export const createMedicine = async (
   }
 };
 
+export const addMedicineBatch = async (
+  state: unknown,
+  addedBy: string,
+  createdAt: string,
+  medicineId: string,
+  form: {
+    name: string;
+    brand: string;
+    category: string;
+    activeIngredients: string[];
+    dosage: string;
+    form: string;
+    unitsPerPackage: string;
+    storageCondition: string;
+    expiryDate: string;
+    stockQuantity: string;
+    reorderLevel: string;
+    supplierId: string;
+    supplierName: string;
+    batchNumber: string;
+    costPrice: string;
+    sellingPrice: string;
+    prescriptionRequired: string;
+    fdaApproved: string;
+    usageWarnings: string;
+    sideEffects: string;
+    usageInstructions: string;
+    imageUrl: string;
+    notes: string;
+  }
+) => {
+  try {
+    const costPrice =
+      form.costPrice.trim() === ""
+        ? "0"
+        : parseFloat(form.costPrice).toFixed(2).toString();
+    const sellingPrice =
+      form.sellingPrice.trim() === ""
+        ? "0"
+        : parseFloat(form.sellingPrice).toFixed(2).toString();
+
+    const formattedExpiration = moment(form.expiryDate).format("MM-DD-YYYY");
+
+    const data = await db.insert(Medicine).values({
+      addedBy: addedBy,
+      createdAt: createdAt,
+      medicineId: medicineId,
+      name: form.name,
+      brand: form.brand,
+      category: form.category,
+      activeIngredients: form.activeIngredients,
+      dosage: form.dosage,
+      form: form.form,
+      unitsPerPackage: form.unitsPerPackage,
+      storageCondition: form.storageCondition,
+      expiryDate: moment(form.expiryDate).format("MM-DD-YYYY"),
+      expired: moment(formattedExpiration, "MM-DD-YYYY").isBefore(
+        //only if the user input date is before the date right now, then expired
+        moment().format("MM-DD-YYYY"),
+        "day"
+      )
+        ? "expired"
+        : "not expired",
+      stockQuantity: parseInt(form.stockQuantity) || 0,
+      reorderLevel: parseInt(form.reorderLevel) || 0,
+      supplierId: form.supplierId,
+      supplierName: form.supplierName,
+      batchNumber: form.batchNumber,
+      costPrice: costPrice,
+      sellingPrice: sellingPrice,
+      prescriptionRequired: form.prescriptionRequired,
+      fdaApproved: form.fdaApproved,
+      usageWarnings: form.usageWarnings,
+      sideEffects: form.sideEffects,
+      usageInstructions: form.usageInstructions,
+      imageUrl: form.imageUrl,
+      notes: form.notes,
+    });
+
+    if (data) {
+      revalidatePath("/dashboard/inventory/status");
+      return parseStringify({ data: data });
+    }
+    return parseStringify({ data: null });
+  } catch (error) {
+    handleError(error);
+  }
+};
+
 export const updateMedicine = async (
   state: unknown,
   medicineId: string,

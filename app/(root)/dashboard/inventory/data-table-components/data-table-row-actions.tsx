@@ -13,7 +13,8 @@ import {
 import { MoreHorizontal } from "lucide-react";
 import DeleteMedicine from "./delete-medicine";
 import Link from "next/link";
-import EditStocks from "./edit-stocks";
+// import EditStocks from "./edit-stocks";
+import AddNewBatch from "../../manage/medicines/_components/AddNewBatch";
 
 interface DataTableRowActionsProps<TData> {
   medicineId: string;
@@ -47,7 +48,8 @@ export function DataTableRowActions<TData>({
           </Link>
         )}
         {(userRole === "admin" || userRole === "pharmacist") && (
-          <EditStocks medicineId={medicineId} />
+          // <EditStocks medicineId={medicineId} />
+          <AddNewBatch medicineId={medicineId} />
         )}
         <DropdownMenuItem>Make a copy</DropdownMenuItem>
         <DropdownMenuItem>View</DropdownMenuItem>

@@ -425,7 +425,7 @@ const CreateMedicineForm = () => {
                 </label>
                 <Select onValueChange={(val) => handleSupplierChange(val)}>
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select medicines" />
+                    <SelectValue placeholder="Select Supplier" />
                   </SelectTrigger>
                   <SelectContent>
                     {suppliersList?.length > 0 &&
