@@ -39,6 +39,10 @@ import moment from "moment";
 import AllergiesInput from "../../patients/_components/AllergiesInput";
 import axios from "axios";
 import { formatDate } from "@/lib/utils";
+import { columns } from "@/components/dataTable/medicines/medicine-columns";
+import { DataTable } from "@/components/dataTable/medicines/medicine-data-table";
+import { getCurrentUser } from "@/lib/actions/user";
+import { getAllMedicines } from "@/lib/actions/medicine";
 
 const EditAppointment = ({ appointmentId }: { appointmentId: string }) => {
   const router = useRouter();
@@ -56,19 +60,11 @@ const EditAppointment = ({ appointmentId }: { appointmentId: string }) => {
   const [appointmentConditionSeverity, setAppointmentConditionSeverity] =
     useState<string | null>((appointment?.severity as string) || null);
 
-  const [prescription, setPrescription] = useState<string>(
-    patient?.prescription as string
-  );
-
   const [allergiesArray, setAllergiesArray] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(false);
 
   const [aiPatientPrescription, setAiPatientPrescription] = useState("");
-
-  const handleQuillChange = (value: string) => {
-    setPrescription(value);
-  };
 
   useEffect(() => {
     const getAppointment = async () => {
@@ -119,6 +115,41 @@ const EditAppointment = ({ appointmentId }: { appointmentId: string }) => {
 
     getPatientInfo();
   }, [appointment]);
+
+  // get the medicine list and the currently logged in user
+  const [currentUser, setCurrentUser] = useState<UserType | null>(null);
+  const [medicines, setMedicines] = useState<MedicineType[]>([]);
+
+  useEffect(() => {
+    const getDatatableData = async () => {
+      try {
+        const [user, medicinesList] = await Promise.all([
+          getCurrentUser(),
+          getAllMedicines(),
+        ]);
+        if (user?.data === null) router.push("/sign-in");
+
+        setCurrentUser(user?.data);
+        setMedicines(medicinesList?.data);
+      } catch (error) {
+        console.error("Failed to load medicines data:", error);
+      }
+    };
+
+    getDatatableData();
+  }, [router]);
+
+  const [quillValue, setQuillValue] = useState("");
+  const handleQuillChange = (value: string) => {
+    setQuillValue(value);
+  };
+  useEffect(() => {
+    if (aiPatientPrescription) {
+      setQuillValue(aiPatientPrescription);
+    } else if (patient?.prescription) {
+      setQuillValue(patient.prescription);
+    }
+  }, [aiPatientPrescription, patient]);
 
   const askAiPrescription = async () => {
     const finalReason = appointmentReason || appointment?.reason;
@@ -190,7 +221,7 @@ Example response format:
   const handleSubmit = async (prevState: unknown, formData: FormData) => {
     try {
       const finalStatus = status || appointment?.status;
-      const finalPrescription = prescription || patient?.prescription;
+      const finalPrescription = quillValue || patient?.prescription;
       const finalReason = appointmentReason || appointment?.reason;
       const finalConditionDesc =
         appointmentConditionDesc || appointment?.conditionDescription;
@@ -252,7 +283,7 @@ Example response format:
             <p className="text-sm">Edit</p>
           </div>
         </AlertDialogTrigger>
-        <AlertDialogContent>
+        <AlertDialogContent className="xl:min-w-[80rem] max-h-[50rem] overflow-auto card-scroll">
           <AlertDialogHeader>
             <AlertDialogTitle>Manage Appointment</AlertDialogTitle>
             <AlertDialogDescription>
@@ -260,200 +291,193 @@ Example response format:
               appointment
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <form
-            action={formAction}
-            className="min-h-[30rem] max-h-[30rem] overflow-auto card-scroll p-5"
-          >
-            <div className="mt-5 flex flex-col gap-5">
-              <div className="flex flex-row items-center justify-center gap-3 w-full">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start justify-center">
+            <form action={formAction} className="">
+              <div className="mt-5 flex flex-col gap-5">
+                <div className="flex flex-row items-center justify-center gap-3 w-full">
+                  <div className="flex flex-col gap-1 w-full">
+                    <label className="text-xs text-gray-500 dark:text-gray-400">
+                      Patient Name
+                    </label>
+                    <Input
+                      type="text"
+                      id="patientName"
+                      name="patientName"
+                      defaultValue={appointment?.patientName}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1 w-full">
+                    <label className="text-xs text-gray-500 dark:text-gray-400">
+                      Doctor Name
+                    </label>
+                    <Input
+                      type="text"
+                      id="doctorName"
+                      name="doctorName"
+                      defaultValue={appointment?.doctorName}
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col gap-3 w-full">
+                  <div className="flex flex-col gap-1 w-full">
+                    <label className="text-xs text-gray-500 dark:text-gray-400">
+                      Appointment Reason
+                    </label>
+                    <Input
+                      id="reason"
+                      name="reason"
+                      defaultValue={appointment?.reason}
+                      onChange={(e) => setAppointmentReason(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1 w-full">
+                    <label className="text-xs text-gray-500 dark:text-gray-400">
+                      Condition Description
+                    </label>
+                    <Textarea
+                      rows={5}
+                      id="conditionDescription"
+                      name="conditionDescription"
+                      defaultValue={appointment?.conditionDescription}
+                      onChange={(e) =>
+                        setAppointmentConditionDesc(e.target.value)
+                      }
+                      className="card-scroll"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3 w-full">
+                  <div className="flex flex-col gap-1 w-full">
+                    <label
+                      htmlFor="conditionSeverity"
+                      className="text-xs text-gray-500  dark:text-gray-400"
+                    >
+                      Patient&apos;s Condition Severity
+                    </label>
+                    <Select
+                      onValueChange={(value) =>
+                        setAppointmentConditionSeverity(value ? value : "mild")
+                      }
+                      defaultValue={appointment?.severity}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Severity" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={"mild"}>Mild</SelectItem>
+                        <SelectItem value={"moderate"}>Moderate</SelectItem>
+                        <SelectItem value={"severe"}>Severe</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex flex-col gap-1 w-full">
+                    <AllergiesInput
+                      initialAllergies={appointment?.allergies}
+                      onAllergiesChange={(newAllergies) => {
+                        setAllergiesArray(newAllergies);
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-row items-center justify-center gap-3 w-full">
+                  <div className="flex flex-col gap-1 w-full">
+                    <label className="text-xs text-gray-500 dark:text-gray-400">
+                      Appointment Status
+                    </label>
+                    <Select
+                      onValueChange={(value) =>
+                        setStatus(value ? value : "pending")
+                      }
+                      defaultValue={appointment?.status}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={"pending"}>Pending</SelectItem>
+                        <SelectItem value={"completed"}>Completed</SelectItem>
+                        <SelectItem value={"canceled"}>Canceled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
                 <div className="flex flex-col gap-1 w-full">
                   <label className="text-xs text-gray-500 dark:text-gray-400">
-                    Patient Name
+                    Date
                   </label>
                   <Input
-                    type="text"
-                    id="patientName"
-                    name="patientName"
-                    defaultValue={appointment?.patientName}
+                    type="date"
+                    id="date"
+                    name="date"
+                    defaultValue={formatDate(appointment?.date as string)}
                   />
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {appointment?.date}
+                  </span>
                 </div>
-                <div className="flex flex-col gap-1 w-full">
-                  <label className="text-xs text-gray-500 dark:text-gray-400">
-                    Doctor Name
-                  </label>
-                  <Input
-                    type="text"
-                    id="doctorName"
-                    name="doctorName"
-                    defaultValue={appointment?.doctorName}
-                  />
+                <div className="flex flex-row items-center justify-center gap-3 w-full">
+                  <div className="flex flex-col gap-1 w-full">
+                    <label className="text-xs text-gray-500 dark:text-gray-400">
+                      Time Start
+                    </label>
+                    <Input
+                      type="time"
+                      id="timeStart"
+                      name="timeStart"
+                      defaultValue={appointment?.timeStart}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1 w-full">
+                    <label className="text-xs text-gray-500 dark:text-gray-400">
+                      Time End
+                    </label>
+                    <Input
+                      type="time"
+                      id="timeEnd"
+                      name="timeEnd"
+                      defaultValue={appointment?.timeEnd}
+                    />
+                  </div>
                 </div>
-              </div>
-              <div className="flex flex-col gap-3 w-full">
-                <div className="flex flex-col gap-1 w-full">
-                  <label className="text-xs text-gray-500 dark:text-gray-400">
-                    Appointment Reason
-                  </label>
-                  <Input
-                    id="reason"
-                    name="reason"
-                    defaultValue={appointment?.reason}
-                    onChange={(e) => setAppointmentReason(e.target.value)}
-                  />
-                </div>
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-xs text-gray-500 dark:text-gray-400">
+                      Prescription
+                    </label>
 
-                <div className="flex flex-col gap-1 w-full">
-                  <label className="text-xs text-gray-500 dark:text-gray-400">
-                    Condition Description
-                  </label>
-                  <Textarea
-                    rows={5}
-                    id="conditionDescription"
-                    name="conditionDescription"
-                    defaultValue={appointment?.conditionDescription}
-                    onChange={(e) =>
-                      setAppointmentConditionDesc(e.target.value)
-                    }
-                    className="card-scroll"
+                    <Button
+                      type="button"
+                      className="flex items-center gap-2"
+                      size={"sm"}
+                      variant={"outline"}
+                      disabled={loading}
+                      onClick={askAiPrescription}
+                    >
+                      {loading ? (
+                        <>
+                          <LoaderCircleIcon className="w-4 h-4 animate-spin" />
+                          <p className="text-xs">Generating</p>
+                        </>
+                      ) : (
+                        <>
+                          <BrainIcon className="w-4 h-4" />
+                          <p className="text-xs">Ask AI</p>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <ReactQuill
+                    theme="snow"
+                    className="bg-light dark:bg-dark"
+                    value={quillValue}
+                    onChange={handleQuillChange}
                   />
-                </div>
-              </div>
 
-              <div className="flex flex-col gap-3 w-full">
-                <div className="flex flex-col gap-1 w-full">
-                  <label
-                    htmlFor="conditionSeverity"
-                    className="text-xs text-gray-500  dark:text-gray-400"
-                  >
-                    Patient&apos;s Condition Severity
-                  </label>
-                  <Select
-                    onValueChange={(value) =>
-                      setAppointmentConditionSeverity(value ? value : "mild")
-                    }
-                    defaultValue={appointment?.severity}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Severity" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={"mild"}>Mild</SelectItem>
-                      <SelectItem value={"moderate"}>Moderate</SelectItem>
-                      <SelectItem value={"severe"}>Severe</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex flex-col gap-1 w-full">
-                  <AllergiesInput
-                    initialAllergies={appointment?.allergies}
-                    onAllergiesChange={(newAllergies) => {
-                      setAllergiesArray(newAllergies);
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-row items-center justify-center gap-3 w-full">
-                <div className="flex flex-col gap-1 w-full">
-                  <label className="text-xs text-gray-500 dark:text-gray-400">
-                    Appointment Status
-                  </label>
-                  <Select
-                    onValueChange={(value) =>
-                      setStatus(value ? value : "pending")
-                    }
-                    defaultValue={appointment?.status}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={"pending"}>Pending</SelectItem>
-                      <SelectItem value={"completed"}>Completed</SelectItem>
-                      <SelectItem value={"canceled"}>Canceled</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="flex flex-col gap-1 w-full">
-                <label className="text-xs text-gray-500 dark:text-gray-400">
-                  Date
-                </label>
-                <Input
-                  type="date"
-                  id="date"
-                  name="date"
-                  defaultValue={formatDate(appointment?.date as string)}
-                />
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {appointment?.date}
-                </span>
-              </div>
-              <div className="flex flex-row items-center justify-center gap-3 w-full">
-                <div className="flex flex-col gap-1 w-full">
-                  <label className="text-xs text-gray-500 dark:text-gray-400">
-                    Time Start
-                  </label>
-                  <Input
-                    type="time"
-                    id="timeStart"
-                    name="timeStart"
-                    defaultValue={appointment?.timeStart}
-                  />
-                </div>
-                <div className="flex flex-col gap-1 w-full">
-                  <label className="text-xs text-gray-500 dark:text-gray-400">
-                    Time End
-                  </label>
-                  <Input
-                    type="time"
-                    id="timeEnd"
-                    name="timeEnd"
-                    defaultValue={appointment?.timeEnd}
-                  />
-                </div>
-              </div>
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center justify-between gap-2">
-                  <label className="text-xs text-gray-500 dark:text-gray-400">
-                    Prescription
-                  </label>
-
-                  <Button
-                    type="button"
-                    className="flex items-center gap-2"
-                    size={"sm"}
-                    variant={"outline"}
-                    disabled={loading}
-                    onClick={askAiPrescription}
-                  >
-                    {loading ? (
-                      <>
-                        <LoaderCircleIcon className="w-4 h-4 animate-spin" />
-                        <p className="text-xs">Generating</p>
-                      </>
-                    ) : (
-                      <>
-                        <BrainIcon className="w-4 h-4" />
-                        <p className="text-xs">Ask AI</p>
-                      </>
-                    )}
-                  </Button>
-                </div>
-                <ReactQuill
-                  theme="snow"
-                  className="bg-light dark:bg-dark"
-                  defaultValue={patient?.prescription}
-                  value={
-                    aiPatientPrescription
-                      ? aiPatientPrescription
-                      : patient?.prescription
-                  }
-                  onChange={handleQuillChange}
-                />
-
-                {/* {aiPatientPrescription && (
+                  {/* {aiPatientPrescription && (
                   <div className="mt-5 flex flex-col gap-3">
                     <div
                       className="text-xs text-gray-500 dark:text-gray-400"
@@ -473,19 +497,31 @@ Example response format:
                     </Button>
                   </div>
                 )} */}
+                </div>
               </div>
+              <AlertDialogFooter className="mt-5">
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <Button type="submit" disabled={uploading}>
+                  {uploading ? (
+                    <LoaderCircle className="h-5 w-5 animate-spin" />
+                  ) : (
+                    "Save"
+                  )}
+                </Button>
+              </AlertDialogFooter>
+            </form>
+            <div>
+              <DataTable
+                columns={columns}
+                data={medicines}
+                query1="name"
+                showCreate={
+                  currentUser?.role === "admin" ||
+                  currentUser?.role === "pharmacist"
+                }
+              />
             </div>
-            <AlertDialogFooter className="mt-5">
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <Button type="submit" disabled={uploading}>
-                {uploading ? (
-                  <LoaderCircle className="h-5 w-5 animate-spin" />
-                ) : (
-                  "Save"
-                )}
-              </Button>
-            </AlertDialogFooter>
-          </form>
+          </div>
         </AlertDialogContent>
       </AlertDialog>
 
