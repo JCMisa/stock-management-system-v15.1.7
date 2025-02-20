@@ -254,7 +254,7 @@ Example response format:
       if (result?.data !== null) {
         toast(
           <p className="font-bold text-sm text-green-500">
-            Patient updated successfully
+            Appointment updated successfully
           </p>
         );
         router.push("/dashboard/manage/appointments");

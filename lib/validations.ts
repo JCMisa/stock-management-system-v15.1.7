@@ -212,11 +212,7 @@ export const validateFormFields = (formField: FormField): ValidationResult => {
       return "";
     },
     occupation: (value: string) => {
-      if (value.length <= 2) {
-        return "Occupation must be greater than 2 characters long";
-      } else if (value.length > 100) {
-        return "Occupation must be less than or equal to 100 characters only";
-      } else if (isSQLInjection(value)) {
+      if (isSQLInjection(value)) {
         return `Possible SQL injection detected in ${value}. Avoid using SQL keywords`;
       }
       return "";

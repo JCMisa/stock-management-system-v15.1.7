@@ -46,6 +46,7 @@ export const addAppointment = async (
   appointmentId: string,
   patientId: string,
   doctorId: string,
+  doctorName: string,
   patientName: string,
   reason: string,
   conditionDescription: string,
@@ -53,13 +54,17 @@ export const addAppointment = async (
   familyMedicalHistory: string,
   allergies: string,
   status: string,
-  createdAt: string
+  createdAt: string,
+  date: string,
+  timeStart: string,
+  timeEnd: string
 ) => {
   try {
     const data = await db.insert(Appointment).values({
       appointmentId: appointmentId,
       patientId: patientId,
       doctorId: doctorId,
+      doctorName: doctorName,
       patientName: patientName,
       reason: reason,
       conditionDescription: conditionDescription,
@@ -68,6 +73,9 @@ export const addAppointment = async (
       allergies: allergies,
       status: status,
       createdAt: createdAt,
+      date: date,
+      timeStart: timeStart,
+      timeEnd: timeEnd,
     });
     if (data) {
       return parseStringify({ data: data });

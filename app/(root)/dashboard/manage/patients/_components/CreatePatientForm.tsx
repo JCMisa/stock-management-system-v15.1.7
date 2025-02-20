@@ -32,6 +32,8 @@ import "react-quill-new/dist/quill.snow.css";
 import LoaderDialog from "@/components/custom/LoaderDialog";
 import AllergiesInput from "./AllergiesInput";
 import { validateFormFields } from "@/lib/validations";
+import emailjs from "@emailjs/browser";
+import { format } from "date-fns";
 
 const CreatePatientForm = ({
   patientId,
@@ -54,9 +56,11 @@ const CreatePatientForm = ({
   const [identificationCardType, setIdentificationCardType] = useState<string>(
     patientLayout?.identificationCardType
   );
-  const [doctorId, setDoctorId] = useState<string | null>(
-    patientLayout?.doctorId || null
-  );
+  const [selectedDoctor, setSelectedDoctor] = useState<{
+    doctorId: string;
+    doctorName: string;
+    doctorEmail: string;
+  } | null>(null);
   const [loading, setLoading] = useState(false);
 
   const [currentUser, setCurrentUser] = useState<UserType>();
@@ -119,6 +123,37 @@ const CreatePatientForm = ({
     getPatient();
   }, [patientId]);
 
+  const handleSelectedDoctorChange = async (doctorId: string) => {
+    // Find the selected doctor from the doctorsList
+    const selectedDoctor = doctorsList.find(
+      (doctor) => doctor.userId === doctorId
+    );
+
+    // Update the selectedDoctor state with the doctor's information
+    if (selectedDoctor) {
+      setSelectedDoctor({
+        doctorId: selectedDoctor.userId,
+        doctorName: `${selectedDoctor.firstname} ${selectedDoctor.lastname}`,
+        doctorEmail: selectedDoctor.email,
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (patientLayout?.doctorId && doctorsList.length > 0) {
+      const initialDoctor = doctorsList.find(
+        (doctor) => doctor.userId === patientLayout?.doctorId
+      );
+      if (initialDoctor) {
+        setSelectedDoctor({
+          doctorId: initialDoctor.userId,
+          doctorName: `${initialDoctor.firstname} ${initialDoctor.lastname}`,
+          doctorEmail: initialDoctor.email,
+        });
+      }
+    }
+  }, [patientLayout?.doctorId, doctorsList]);
+
   const handleSubmit = async (prevState: unknown, formData: FormData) => {
     try {
       const finalGender = gender || patientLayout?.gender;
@@ -126,7 +161,7 @@ const CreatePatientForm = ({
         identificationCardType || patientLayout?.identificationCardType;
       const finalConditionSeverity =
         severity || patientLayout?.conditionSeverity;
-      const finalDoctorId = doctorId || patientLayout?.doctorId;
+      const finalDoctorId = selectedDoctor?.doctorId || patientLayout?.doctorId;
 
       const formField = {
         doctorId: finalDoctorId as string,
@@ -192,12 +227,16 @@ const CreatePatientForm = ({
       }
 
       // add patient to appointment table with their doctor
-      if ((doctorId || patientLayout?.doctorId) && mode === "create") {
+      if (
+        (selectedDoctor?.doctorId || patientLayout?.doctorId) &&
+        mode === "create"
+      ) {
         const appointmentId = uuidv4();
         const result2 = await addAppointment(
           appointmentId,
           patientId,
-          doctorId || patientLayout?.doctorId,
+          selectedDoctor?.doctorId || patientLayout?.doctorId,
+          selectedDoctor?.doctorName || patientLayout?.doctorName,
           formData.get("firstname") + " " + formData.get("lastname"),
           formData.get("conditionName") as string,
           formData.get("conditionDescription") as string,
@@ -205,7 +244,10 @@ const CreatePatientForm = ({
           formData.get("familyMedicalHistory") as string,
           allergiesArray.join(", "),
           "pending",
-          moment().format("MM-DD-YYYY")
+          moment().format("MM-DD-YYYY"),
+          formData.get("date") as string,
+          formData.get("timeStart") as string,
+          formData.get("timeEnd") as string
         );
 
         if (result2?.data !== null) {
@@ -214,6 +256,38 @@ const CreatePatientForm = ({
               Patient appointment scheduled successfully
             </p>
           );
+
+          // **Email Sending Logic Starts Here**
+
+          // Prepare your email parameters
+          const serviceId = "jcm_service";
+          const templateId = "template_hahf11v";
+          const publicKey = "6EfQ2Qx7Jqnr70L40";
+
+          const templateParams = {
+            appointment_date:
+              (formData.get("date") as string) || moment().format("MM-DD-YYYY"),
+            doctor_name: selectedDoctor?.doctorName || "Doctor",
+            patient_name: formField.firstname + " " + formField.lastname,
+            appointment_reason: formField.conditionName,
+            appointment_time: ((formData.get("timeStart") as string) +
+              " - " +
+              formData.get("timeEnd")) as string,
+            sender_name: currentUser?.firstname + " " + currentUser?.lastname,
+            sender_contact: currentUser?.email,
+          };
+
+          // Send the email using EmailJS
+          emailjs
+            .send(serviceId, templateId, templateParams, publicKey)
+            .then((response) => {
+              console.log("Email sent successfully:", response);
+            })
+            .catch((error) => {
+              console.log("Email failed to send:", error);
+            });
+
+          // **Email Sending Logic Ends Here**
         }
       }
     } catch (error) {
@@ -312,12 +386,17 @@ const CreatePatientForm = ({
                 />
               </div>
               <div className="flex flex-col gap-1 w-full">
-                <label
-                  htmlFor="firstname"
-                  className="text-xs text-gray-500  dark:text-gray-400"
-                >
-                  Gender
-                </label>
+                <div className="flex items-center justify-between gap-4">
+                  <label
+                    htmlFor="firstname"
+                    className="text-xs text-gray-500  dark:text-gray-400"
+                  >
+                    Gender
+                  </label>
+                  <span className="text-xs text-muted-foreground">
+                    {patientLayout?.gender}
+                  </span>
+                </div>
                 <Select
                   onValueChange={(value) => setGender(value ? value : "male")}
                   defaultValue={patientLayout?.gender || gender}
@@ -616,68 +695,113 @@ const CreatePatientForm = ({
 
         {/* assign to doctor - can assign if admin or doctor only */}
         {(currentUser?.role === "admin" ||
-          currentUser?.role === "receptionist") && (
-          <div className="flex flex-col gap-2 mt-10 border border-transparent border-t-primary">
-            <h1 className="text-center text-2xl font-bold py-3">Doctor</h1>
-            <Separator className="border border-light-200 dark:border-dark-200" />
-            <div className="flex flex-col gap-1 w-full">
-              <label
-                htmlFor="prescription"
-                className="text-xs text-gray-500  dark:text-gray-400"
-              >
-                Assign a Doctor for the patient
-              </label>
-              <Select
-                onValueChange={(value) => setDoctorId(value)}
-                value={patientLayout?.doctorId || undefined}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a Doctor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {doctorsList?.length > 0 &&
-                    doctorsList?.map((doctor: UserType) => (
-                      <SelectItem key={doctor?.id} value={doctor?.userId}>
-                        <div className="flex items-center gap-2">
-                          {doctor?.imageUrl ? (
-                            <Image
-                              src={doctor?.imageUrl}
-                              loading="lazy"
-                              placeholder="blur"
-                              blurDataURL="/blur.jpg"
-                              alt="avatar"
-                              width={1000}
-                              height={1000}
-                              className="w-7 h-7 rounded-full"
-                            />
-                          ) : (
-                            <Image
-                              src={"/empty-img.png"}
-                              loading="lazy"
-                              placeholder="blur"
-                              blurDataURL="/blur.jpg"
-                              alt="avatar"
-                              width={1000}
-                              height={1000}
-                              className="w-7 h-7 rounded-full"
-                            />
-                          )}
+          currentUser?.role === "receptionist") &&
+          mode === "create" && (
+            <div className="flex flex-col gap-2 mt-10 border border-transparent border-t-primary">
+              <h1 className="text-center text-2xl font-bold py-3">
+                Appoint Patient
+              </h1>
+              <Separator className="border border-light-200 dark:border-dark-200" />
 
-                          <p>
-                            {doctor?.firstname} {doctor?.lastname}
-                          </p>
-                        </div>
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+              <div className="flex flex-col gap-1 w-full">
+                <label
+                  htmlFor="prescription"
+                  className="text-xs text-gray-500  dark:text-gray-400"
+                >
+                  Assign a Doctor for the patient
+                </label>
+                <Select
+                  onValueChange={(value) => handleSelectedDoctorChange(value)}
+                  value={selectedDoctor?.doctorId || ""}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a Doctor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {doctorsList?.length > 0 &&
+                      doctorsList?.map((doctor: UserType) => (
+                        <SelectItem key={doctor?.id} value={doctor?.userId}>
+                          <div className="flex items-center gap-2">
+                            {doctor?.imageUrl ? (
+                              <Image
+                                src={doctor?.imageUrl}
+                                loading="lazy"
+                                placeholder="blur"
+                                blurDataURL="/blur.jpg"
+                                alt="avatar"
+                                width={1000}
+                                height={1000}
+                                className="w-7 h-7 rounded-full"
+                              />
+                            ) : (
+                              <Image
+                                src={"/empty-img.png"}
+                                loading="lazy"
+                                placeholder="blur"
+                                blurDataURL="/blur.jpg"
+                                alt="avatar"
+                                width={1000}
+                                height={1000}
+                                className="w-7 h-7 rounded-full"
+                              />
+                            )}
+
+                            <p>
+                              {doctor?.firstname} {doctor?.lastname}
+                            </p>
+                          </div>
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1 w-full mt-5">
+                <label
+                  htmlFor="appointmentDate"
+                  className="text-xs text-gray-500 dark:text-gray-400"
+                >
+                  Appointment Date
+                </label>
+                <Input
+                  type="date"
+                  id="appointmentDate"
+                  name="date"
+                  placeholder="Select appointment date"
+                  min={format(new Date(), "yyyy-MM-dd")}
+                />
+              </div>
+              <div className="flex items-center justify-center gap-3 w-full mt-5">
+                <div className="flex flex-col gap-1 w-full">
+                  <label
+                    htmlFor="timeStart"
+                    className="text-xs text-gray-500 dark:text-gray-400"
+                  >
+                    Start Time
+                  </label>
+                  <Input
+                    type="time"
+                    id="timeStart"
+                    name="timeStart"
+                    placeholder="Select start time"
+                  />
+                </div>
+                <div className="flex flex-col gap-1 w-full">
+                  <label
+                    htmlFor="timeEnd"
+                    className="text-xs text-gray-500 dark:text-gray-400"
+                  >
+                    End Time
+                  </label>
+                  <Input
+                    type="time"
+                    id="timeEnd"
+                    name="timeEnd"
+                    placeholder="Select end time"
+                  />
+                </div>
+              </div>
             </div>
-          </div>
-        )}
-
-        {/* todo: add a select field to select who the doctor is / who the pharmacist who sold the medicines */}
-        {/* todo: add the list of medicines in a select field to select medicines bought by the patient */}
-        {/* todo: based on the medicines bought, auto calculate the income generated and store it in database */}
+          )}
 
         <div className="flex flex-row items-center justify-end mt-10">
           <Button

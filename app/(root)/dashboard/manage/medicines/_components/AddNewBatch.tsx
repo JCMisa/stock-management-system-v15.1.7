@@ -378,7 +378,7 @@ const AddNewBatch = ({ medicineId }: AddNewBatchProps) => {
                         New Batch No.
                       </label>
                       <Input
-                        defaultValue={newBatchNumber}
+                        defaultValue={String(newBatchNumber)}
                         type="number"
                         min={1}
                         id="batchNumber"
@@ -405,7 +405,7 @@ const AddNewBatch = ({ medicineId }: AddNewBatchProps) => {
                         Cost Price
                       </label>
                       <Input
-                        defaultValue={medicineInfo?.costPrice}
+                        defaultValue={String(medicineInfo?.costPrice)}
                         type="number"
                         step="0.01"
                         id="costPrice"
@@ -420,7 +420,7 @@ const AddNewBatch = ({ medicineId }: AddNewBatchProps) => {
                         Selling Price
                       </label>
                       <Input
-                        defaultValue={medicineInfo?.sellingPrice}
+                        defaultValue={String(medicineInfo?.sellingPrice)}
                         type="number"
                         step="0.01"
                         id="sellingPrice"
