@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 
 import { db } from "@/utils/db";
@@ -116,7 +117,6 @@ export const createUser = async (
 };
 
 export const createUserInfo = async (
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   state: any,
   userId: string,
   form: {
@@ -185,7 +185,6 @@ export const updateUserAvatar = async (userId: string, downloadUrl: string) => {
 };
 
 export const updateUserInfo = async (
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   state: any,
   userId: string,
   form: {

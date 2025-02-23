@@ -16,6 +16,7 @@ import { medicineCategories } from "@/constants";
 import { createMedicine } from "@/lib/actions/medicine";
 import { getAllSuppliers } from "@/lib/actions/supplier";
 import { getCurrentUser } from "@/lib/actions/user";
+import { validateFormFields } from "@/lib/validations";
 import { LoaderCircle, Send, X } from "lucide-react";
 import moment from "moment";
 import { useRouter } from "next/navigation";
@@ -25,6 +26,8 @@ import { v4 as uuidv4 } from "uuid";
 
 const CreateMedicineForm = () => {
   const router = useRouter();
+
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   const [currentUser, setCurrentUser] = useState<UserType>();
 
@@ -123,6 +126,29 @@ const CreateMedicineForm = () => {
         unitsPerPackage: formData.get("unitsPerPackage") as string,
         storageCondition: storageCondition as string,
         expiryDate: formData.get("expiryDate") as string,
+        stockQuantity: formData.get("stockQuantity") as string, // continue adding validation here
+        reorderLevel: formData.get("reorderLevel") as string,
+        supplierId: selectedSupplier?.id as string,
+        supplierName: selectedSupplier?.name as string,
+        batchNumber: formData.get("batchNumber") as string,
+        costPrice: formData.get("costPrice") as string,
+        sellingPrice: formData.get("sellingPrice") as string,
+        prescriptionRequired: prescriptionRequired as string,
+        fdaApproved: fdaApproved as string,
+        usageWarnings: formData.get("usageWarnings") as string,
+        sideEffects: formData.get("sideEffects") as string,
+        usageInstructions: formData.get("usageInstructions") as string,
+        notes: formData.get("notes") as string,
+      };
+      const formFieldWithoutActiveIngredients = {
+        name: formData.get("name") as string,
+        brand: formData.get("brand") as string,
+        category: category as string,
+        dosage: formData.get("dosage") as string,
+        form: form as string,
+        unitsPerPackage: formData.get("unitsPerPackage") as string,
+        storageCondition: storageCondition as string,
+        expiryDate: formData.get("expiryDate") as string,
         stockQuantity: formData.get("stockQuantity") as string,
         reorderLevel: formData.get("reorderLevel") as string,
         supplierId: selectedSupplier?.id as string,
@@ -138,6 +164,24 @@ const CreateMedicineForm = () => {
         notes: formData.get("notes") as string,
       };
 
+      // ... validation starts here ...
+      const { isValid, errors } = validateFormFields(
+        formFieldWithoutActiveIngredients
+      );
+      // ... validation ends here ...
+
+      if (!isValid) {
+        setFieldErrors(errors);
+        console.log("Form has errors:", errors); // Log all errors to the console
+        toast(
+          <p className="font-bold text-xs text-red-500">
+            Please correct the form errors.
+          </p>
+        );
+        return null; // Stop execution if the form is invalid
+      }
+
+      // only trigger this method if the validations are passed
       const result = await createMedicine(
         prevState,
         currentUser?.email as string,
@@ -173,6 +217,18 @@ const CreateMedicineForm = () => {
 
   return (
     <>
+      {/* Display errors at the top */}
+      {Object.entries(fieldErrors).length > 0 && ( // Only show errors if there are any
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 text-xs">
+          {/* Styling for error box */}
+          <ul className="list-disc pl-5">
+            {/* Use a list for better formatting */}
+            {Object.entries(fieldErrors).map(([key, message]) => (
+              <li key={key}>{message}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       <form
         action={formAction}
         className="bg-light-100 dark:bg-dark-100 border border-t-primary rounded-lg flex flex-col gap-4 p-5"

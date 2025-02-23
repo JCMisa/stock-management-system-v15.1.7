@@ -1,3 +1,5 @@
+type FieldValueType = string | string[];
+
 type FieldErrors = { [key: string]: string };
 
 interface FormField {
@@ -9,25 +11,31 @@ interface ValidationResult {
   errors: FieldErrors;
 }
 
+// Update validation rules type
+type ValidationRule = (
+  value: FieldValueType,
+  formField: FormField
+) => string | void;
+
 export const validateFormFields = (formField: FormField): ValidationResult => {
   const errors: FieldErrors = {};
   let isValid = true;
 
   // Utility functions
-  const isValidDate = (dateString: string): boolean => {
+  const isValidDate = (dateString: FieldValueType): boolean => {
     const regex = /^\d{4}-\d{2}-\d{2}$/;
-    return regex.test(dateString);
+    return regex.test(dateString as string);
   };
 
-  const isFutureDate = (dateString: string): boolean => {
+  const isFutureDate = (dateString: FieldValueType): boolean => {
     const today = new Date();
-    const inputDate = new Date(dateString);
+    const inputDate = new Date(dateString as string);
     return inputDate > today;
   };
 
-  const calculateAge = (dateString: string): number => {
+  const calculateAge = (dateString: FieldValueType): number => {
     const today = new Date();
-    const birthDate = new Date(dateString);
+    const birthDate = new Date(dateString as string);
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDifference = today.getMonth() - birthDate.getMonth();
     if (
@@ -39,17 +47,17 @@ export const validateFormFields = (formField: FormField): ValidationResult => {
     return age;
   };
 
-  const isPositiveInteger = (value: string): boolean => {
+  const isPositiveInteger = (value: FieldValueType): boolean => {
     const regex = /^\d+$/;
-    return regex.test(value);
+    return regex.test(value as string);
   };
 
-  const isValidEmail = (email: string): boolean => {
+  const isValidEmail = (email: FieldValueType): boolean => {
     const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return regex.test(email);
+    return regex.test(email as string);
   };
 
-  const isSQLInjection = (input: string): boolean => {
+  const isSQLInjection = (input: FieldValueType): boolean => {
     const sqlKeywords = [
       "SELECT",
       "INSERT",
@@ -96,20 +104,34 @@ export const validateFormFields = (formField: FormField): ValidationResult => {
     ];
     return sqlKeywords.some((keyword) => {
       const regex = new RegExp(`\\b${keyword}\\b`, "i");
-      return regex.test(input);
+      return regex.test(input as string);
     });
   };
 
-  // const containsSpecialCharacters = (value: string): boolean => {
-  //   const regex = /[^a-zA-Z0-9]/; // Adjust the regex pattern according to your requirements
-  //   return regex.test(value);
-  // };
+  const isValidMgDosage = (value: FieldValueType): boolean => {
+    const dosageString = (value as string).trim().toLowerCase();
+    // Regex: number (integer or decimal) followed by "mg", optionally with whitespace
+    const mgRegex = /^\d+(\.\d+)?\s*mg$/;
+    return mgRegex.test(dosageString);
+  };
 
   // Validation rules
   const validationRules: {
-    [key: string]: (value: string, formField: FormField) => string | void;
+    [key: string]: ValidationRule;
   } = {
-    firstname: (value: string) => {
+    name: (value: FieldValueType) => {
+      if (!value) {
+        return "Name is required";
+      } else if (value.length <= 2) {
+        return "Name must be greater than 2 characters long";
+      } else if (value.length > 150) {
+        return "Name must be less than or equal to 150 characters only";
+      } else if (isSQLInjection(value)) {
+        return `Possible SQL injection detected in "${value}". Avoid using SQL keywords`;
+      }
+      return "";
+    },
+    firstname: (value: FieldValueType) => {
       if (!value) {
         return "First name is required";
       } else if (value.length <= 2) {
@@ -121,7 +143,7 @@ export const validateFormFields = (formField: FormField): ValidationResult => {
       }
       return "";
     },
-    lastname: (value: string) => {
+    lastname: (value: FieldValueType) => {
       if (!value) {
         return "Last name is required";
       } else if (value.length <= 2) {
@@ -133,7 +155,7 @@ export const validateFormFields = (formField: FormField): ValidationResult => {
       }
       return "";
     },
-    email: (value: string) => {
+    email: (value: FieldValueType) => {
       if (!value) {
         return "Email is required";
       } else if (!isValidEmail(value)) {
@@ -147,7 +169,7 @@ export const validateFormFields = (formField: FormField): ValidationResult => {
       }
       return "";
     },
-    dateOfBirth: (value: string) => {
+    dateOfBirth: (value: FieldValueType) => {
       if (!isValidDate(value)) {
         return "Invalid date format. Please use YYYY-MM-DD";
       } else if (isFutureDate(value)) {
@@ -157,7 +179,7 @@ export const validateFormFields = (formField: FormField): ValidationResult => {
       }
       return "";
     },
-    age: (value: string) => {
+    age: (value: FieldValueType) => {
       if (!value) {
         return "Age is required";
       } else if (!isPositiveInteger(value)) {
@@ -169,7 +191,7 @@ export const validateFormFields = (formField: FormField): ValidationResult => {
       }
       return "";
     },
-    contact: (value: string) => {
+    contact: (value: FieldValueType) => {
       if (!value) {
         return "Phone contact number is required";
       } else if (value.length < 7) {
@@ -181,7 +203,7 @@ export const validateFormFields = (formField: FormField): ValidationResult => {
       }
       return "";
     },
-    address: (value: string) => {
+    address: (value: FieldValueType) => {
       if (!value) {
         return "Address is required";
       } else if (value.length < 5) {
@@ -193,7 +215,7 @@ export const validateFormFields = (formField: FormField): ValidationResult => {
       }
       return "";
     },
-    conditionName: (value: string) => {
+    conditionName: (value: FieldValueType) => {
       if (!value) {
         return "Condition name is required";
       } else if (value.length <= 2) {
@@ -205,19 +227,19 @@ export const validateFormFields = (formField: FormField): ValidationResult => {
       }
       return "";
     },
-    doctorId: (value: string) => {
+    doctorId: (value: FieldValueType) => {
       if (!value) {
         return "Assign the patient to a Doctor first";
       }
       return "";
     },
-    occupation: (value: string) => {
+    occupation: (value: FieldValueType) => {
       if (isSQLInjection(value)) {
         return `Possible SQL injection detected in ${value}. Avoid using SQL keywords`;
       }
       return "";
     },
-    emergencyContactName: (value: string, formField: FormField) => {
+    emergencyContactName: (value: FieldValueType, formField: FormField) => {
       if (!value) {
         if (formField.emergencyContactNumber) {
           return "Emergency contact name is required if an emergency contact number is provided";
@@ -231,7 +253,7 @@ export const validateFormFields = (formField: FormField): ValidationResult => {
       }
       return "";
     },
-    emergencyContactNumber: (value: string, formField: FormField) => {
+    emergencyContactNumber: (value: FieldValueType, formField: FormField) => {
       if (!value) {
         if (formField.emergencyContactName) {
           return "Emergency contact number is required if an emergency contact name is provided";
@@ -245,7 +267,7 @@ export const validateFormFields = (formField: FormField): ValidationResult => {
       }
       return "";
     },
-    insuranceProvider: (value: string, formField: FormField) => {
+    insuranceProvider: (value: FieldValueType, formField: FormField) => {
       if (!value) {
         if (formField.insurancePolicyNumber) {
           return "Insurance provider is required if an insurance policy number is provided";
@@ -259,7 +281,7 @@ export const validateFormFields = (formField: FormField): ValidationResult => {
       }
       return "";
     },
-    insurancePolicyNumber: (value: string, formField: FormField) => {
+    insurancePolicyNumber: (value: FieldValueType, formField: FormField) => {
       if (!value) {
         if (formField.insuranceProvider) {
           return "Insurance policy number is required if an insurance provider is provided";
@@ -273,7 +295,7 @@ export const validateFormFields = (formField: FormField): ValidationResult => {
       }
       return "";
     },
-    identificationCardType: (value: string, formField: FormField) => {
+    identificationCardType: (value: FieldValueType, formField: FormField) => {
       if (!value) {
         if (formField.identificationCardNumber) {
           return "Identification card type is required if an identification card number is provided";
@@ -283,7 +305,7 @@ export const validateFormFields = (formField: FormField): ValidationResult => {
       }
       return "";
     },
-    identificationCardNumber: (value: string, formField: FormField) => {
+    identificationCardNumber: (value: FieldValueType, formField: FormField) => {
       if (!value) {
         if (formField.identificationCardType) {
           return "Identification card number is required if an identification card type is provided";
@@ -293,19 +315,57 @@ export const validateFormFields = (formField: FormField): ValidationResult => {
       }
       return "";
     },
-    allergies: (value: string) => {
+    allergies: (value: FieldValueType) => {
       if (isSQLInjection(value)) {
         return `Possible SQL injection detected in ${value}. Avoid using SQL keywords`;
       }
       return "";
     },
-    familyMedicalHistory: (value: string) => {
+    familyMedicalHistory: (value: FieldValueType) => {
       if (value.length <= 2) {
         return "Family medical history must be greater than 2 characters long";
       } else if (value.length > 100) {
         return "Family medical history must be less than or equal to 100 characters only";
       } else if (isSQLInjection(value)) {
         return `Possible SQL injection detected in ${value}. Avoid using SQL keywords`;
+      }
+      return "";
+    },
+    brand: (value: FieldValueType) => {
+      if (!value) {
+        return "Medicine brand is required";
+      } else if (value.length <= 2) {
+        return "Medicine brand must be greater than 2 characters long";
+      } else if (value.length > 150) {
+        return "Medicine brand must be less than or equal to 150 characters only";
+      } else if (isSQLInjection(value)) {
+        return `Possible SQL injection detected in "${value}". Avoid using SQL keywords`;
+      }
+      return "";
+    },
+    category: (value: FieldValueType) => {
+      if (!value) {
+        return "Medicine category is required";
+      }
+      return "";
+    },
+    dosage: (value: FieldValueType) => {
+      if (!value) return "Dosage is required";
+      if (!isValidMgDosage(value))
+        return "Dosage must be specified in milligrams (mg) only, e.g., '200mg' or '10.5 mg'";
+      if (isSQLInjection(value))
+        return `Possible SQL injection detected in "${value}". Avoid using SQL keywords`;
+      return "";
+    },
+    form: (value: FieldValueType) => {
+      if (!value) {
+        return "Medicine form is required";
+      }
+      return "";
+    },
+    storageCondition: (value: FieldValueType) => {
+      if (!value) {
+        return "Medicine storage condition is required";
       }
       return "";
     },
@@ -343,3 +403,381 @@ export const matchAgeBirth = (dateString: string) => {
   }
   return age;
 };
+
+// -------------------------- old version --------------------------------------
+// type FieldErrors = { [key: string]: string };
+
+// interface FormField {
+//   [key: string]: string;
+// }
+
+// interface ValidationResult {
+//   isValid: boolean;
+//   errors: FieldErrors;
+// }
+
+// export const validateFormFields = (formField: FormField): ValidationResult => {
+//   const errors: FieldErrors = {};
+//   let isValid = true;
+
+//   // Utility functions
+//   const isValidDate = (dateString: string): boolean => {
+//     const regex = /^\d{4}-\d{2}-\d{2}$/;
+//     return regex.test(dateString);
+//   };
+
+//   const isFutureDate = (dateString: string): boolean => {
+//     const today = new Date();
+//     const inputDate = new Date(dateString);
+//     return inputDate > today;
+//   };
+
+//   const calculateAge = (dateString: string): number => {
+//     const today = new Date();
+//     const birthDate = new Date(dateString);
+//     let age = today.getFullYear() - birthDate.getFullYear();
+//     const monthDifference = today.getMonth() - birthDate.getMonth();
+//     if (
+//       monthDifference < 0 ||
+//       (monthDifference === 0 && today.getDate() < birthDate.getDate())
+//     ) {
+//       age--;
+//     }
+//     return age;
+//   };
+
+//   const isPositiveInteger = (value: string): boolean => {
+//     const regex = /^\d+$/;
+//     return regex.test(value);
+//   };
+
+//   const isValidEmail = (email: string): boolean => {
+//     const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+//     return regex.test(email);
+//   };
+
+//   const isSQLInjection = (input: string): boolean => {
+//     const sqlKeywords = [
+//       "SELECT",
+//       "INSERT",
+//       "UPDATE",
+//       "DELETE",
+//       "DROP",
+//       "UNION",
+//       "ALTER",
+//       "WHERE",
+//       "FROM",
+//       "JOIN",
+//       "TABLE",
+//       "AND",
+//       "OR",
+//       "NOT",
+//       "CREATE",
+//       "TRUNCATE",
+//       "EXEC",
+//       "EXECUTE",
+//       "DECLARE",
+//       "HAVING",
+//       "ORDER",
+//       "GROUP",
+//       "LIMIT",
+//       "OFFSET",
+//       "FETCH",
+//       "INTO",
+//       "VALUES",
+//       "SET",
+//       "DISTINCT",
+//       "DATABASE",
+//       "INDEX",
+//       "VIEW",
+//       "TRIGGER",
+//       "PROCEDURE",
+//       "FUNCTION",
+//       "PRIMARY",
+//       "FOREIGN",
+//       "KEY",
+//       "CONSTRAINT",
+//       "CHECK",
+//       "DEFAULT",
+//       "REFERENCES",
+//     ];
+//     return sqlKeywords.some((keyword) => {
+//       const regex = new RegExp(`\\b${keyword}\\b`, "i");
+//       return regex.test(input);
+//     });
+//   };
+
+//   // const containsSpecialCharacters = (value: string): boolean => {
+//   //   const regex = /[^a-zA-Z0-9]/; // Adjust the regex pattern according to your requirements
+//   //   return regex.test(value);
+//   // };
+
+//   // Validation rules
+//   const validationRules: {
+//     [key: string]: (value: string, formField: FormField) => string | void;
+//   } = {
+//     name: (value: string) => {
+//       if (!value) {
+//         return "Name is required";
+//       } else if (value.length <= 2) {
+//         return "Name must be greater than 2 characters long";
+//       } else if (value.length > 150) {
+//         return "Name must be less than or equal to 150 characters only";
+//       } else if (isSQLInjection(value)) {
+//         return `Possible SQL injection detected in "${value}". Avoid using SQL keywords`;
+//       }
+//       return "";
+//     },
+
+//     firstname: (value: string) => {
+//       if (!value) {
+//         return "First name is required";
+//       } else if (value.length <= 2) {
+//         return "First name must be greater than 2 characters long";
+//       } else if (value.length > 150) {
+//         return "First name must be less than or equal to 150 characters only";
+//       } else if (isSQLInjection(value)) {
+//         return `Possible SQL injection detected in "${value}". Avoid using SQL keywords`;
+//       }
+//       return "";
+//     },
+//     lastname: (value: string) => {
+//       if (!value) {
+//         return "Last name is required";
+//       } else if (value.length <= 2) {
+//         return "Last name must be greater than 2 characters long";
+//       } else if (value.length > 150) {
+//         return "Last name must be less than or equal to 150 characters only";
+//       } else if (isSQLInjection(value)) {
+//         return `Possible SQL injection detected in "${value}". Avoid using SQL keywords`;
+//       }
+//       return "";
+//     },
+//     email: (value: string) => {
+//       if (!value) {
+//         return "Email is required";
+//       } else if (!isValidEmail(value)) {
+//         return "Invalid email format";
+//       } else if (value.length <= 2) {
+//         return "Email must be greater than 2 characters long";
+//       } else if (value.length > 150) {
+//         return "Email must be less than or equal to 150 characters only";
+//       } else if (isSQLInjection(value)) {
+//         return `Possible SQL injection detected in "${value}". Avoid using SQL keywords`;
+//       }
+//       return "";
+//     },
+//     dateOfBirth: (value: string) => {
+//       if (!isValidDate(value)) {
+//         return "Invalid date format. Please use YYYY-MM-DD";
+//       } else if (isFutureDate(value)) {
+//         return "Date of birth cannot be in the future";
+//       } else if (calculateAge(value) < 18) {
+//         return "You must be at least 18 years old";
+//       }
+//       return "";
+//     },
+//     age: (value: string) => {
+//       if (!value) {
+//         return "Age is required";
+//       } else if (!isPositiveInteger(value)) {
+//         return "Age must be a positive integer";
+//       } else if (Number(value) < 1) {
+//         return "Age of 0 and below is not valid";
+//       } else if (Number(value) > 150) {
+//         return "Age must be less than or equal to 100 years old";
+//       }
+//       return "";
+//     },
+//     contact: (value: string) => {
+//       if (!value) {
+//         return "Phone contact number is required";
+//       } else if (value.length < 7) {
+//         return "Contact number must not be less than 7 digits";
+//       } else if (value.length > 15) {
+//         return "Contact number must not be greater than 15 digits";
+//       } else if (isSQLInjection(value)) {
+//         return `Possible SQL injection detected in "${value}". Avoid using SQL keywords`;
+//       }
+//       return "";
+//     },
+//     address: (value: string) => {
+//       if (!value) {
+//         return "Address is required";
+//       } else if (value.length < 5) {
+//         return "Address must be at least 5 characters long";
+//       } else if (value.length > 255) {
+//         return "Address must be less than or equal to 255 characters";
+//       } else if (isSQLInjection(value)) {
+//         return `Possible SQL injection detected in "${value}". Avoid using SQL keywords`;
+//       }
+//       return "";
+//     },
+//     conditionName: (value: string) => {
+//       if (!value) {
+//         return "Condition name is required";
+//       } else if (value.length <= 2) {
+//         return "Condition name must be greater than 2 characters long";
+//       } else if (value.length > 150) {
+//         return "Condition name must be less than or equal to 150 characters only";
+//       } else if (isSQLInjection(value)) {
+//         return `Possible SQL injection detected in "${value}". Avoid using SQL keywords`;
+//       }
+//       return "";
+//     },
+//     doctorId: (value: string) => {
+//       if (!value) {
+//         return "Assign the patient to a Doctor first";
+//       }
+//       return "";
+//     },
+//     occupation: (value: string) => {
+//       if (isSQLInjection(value)) {
+//         return `Possible SQL injection detected in ${value}. Avoid using SQL keywords`;
+//       }
+//       return "";
+//     },
+//     emergencyContactName: (value: string, formField: FormField) => {
+//       if (!value) {
+//         if (formField.emergencyContactNumber) {
+//           return "Emergency contact name is required if an emergency contact number is provided";
+//         }
+//       } else if (value.length <= 2) {
+//         return "Emergency Contact Name must be greater than 2 characters long";
+//       } else if (value.length > 100) {
+//         return "Emergency Contact Name must be less than or equal to 100 characters only";
+//       } else if (isSQLInjection(value)) {
+//         return `Possible SQL injection detected in ${value}. Avoid using SQL keywords`;
+//       }
+//       return "";
+//     },
+//     emergencyContactNumber: (value: string, formField: FormField) => {
+//       if (!value) {
+//         if (formField.emergencyContactName) {
+//           return "Emergency contact number is required if an emergency contact name is provided";
+//         }
+//       } else if (value.length < 7) {
+//         return "Emergency contact number must not be less than 7 digits";
+//       } else if (value.length > 15) {
+//         return "Emergency contact number must not be greater than 15 digits";
+//       } else if (isSQLInjection(value)) {
+//         return `Possible SQL injection detected in "${value}". Avoid using SQL keywords`;
+//       }
+//       return "";
+//     },
+//     insuranceProvider: (value: string, formField: FormField) => {
+//       if (!value) {
+//         if (formField.insurancePolicyNumber) {
+//           return "Insurance provider is required if an insurance policy number is provided";
+//         }
+//       } else if (value.length <= 2) {
+//         return "Insurance provider must be greater than 2 characters long";
+//       } else if (value.length > 100) {
+//         return "Insurance provider must be less than or equal to 100 characters only";
+//       } else if (isSQLInjection(value)) {
+//         return `Possible SQL injection detected in ${value}. Avoid using SQL keywords`;
+//       }
+//       return "";
+//     },
+//     insurancePolicyNumber: (value: string, formField: FormField) => {
+//       if (!value) {
+//         if (formField.insuranceProvider) {
+//           return "Insurance policy number is required if an insurance provider is provided";
+//         }
+//       } else if (value.length < 5) {
+//         return "Insurance policy number must be at least 5 characters long";
+//       } else if (value.length > 30) {
+//         return "Insurance policy number must be less than or equal to 30 characters only";
+//       } else if (isSQLInjection(value)) {
+//         return `Possible SQL injection detected in ${value}. Avoid using SQL keywords`;
+//       }
+//       return "";
+//     },
+//     identificationCardType: (value: string, formField: FormField) => {
+//       if (!value) {
+//         if (formField.identificationCardNumber) {
+//           return "Identification card type is required if an identification card number is provided";
+//         }
+//       } else if (isSQLInjection(value)) {
+//         return `Possible SQL injection detected in ${value}. Avoid using SQL keywords`;
+//       }
+//       return "";
+//     },
+//     identificationCardNumber: (value: string, formField: FormField) => {
+//       if (!value) {
+//         if (formField.identificationCardType) {
+//           return "Identification card number is required if an identification card type is provided";
+//         }
+//       } else if (isSQLInjection(value)) {
+//         return `Possible SQL injection detected in ${value}. Avoid using SQL keywords`;
+//       }
+//       return "";
+//     },
+//     allergies: (value: string) => {
+//       if (isSQLInjection(value)) {
+//         return `Possible SQL injection detected in ${value}. Avoid using SQL keywords`;
+//       }
+//       return "";
+//     },
+//     familyMedicalHistory: (value: string) => {
+//       if (value.length <= 2) {
+//         return "Family medical history must be greater than 2 characters long";
+//       } else if (value.length > 100) {
+//         return "Family medical history must be less than or equal to 100 characters only";
+//       } else if (isSQLInjection(value)) {
+//         return `Possible SQL injection detected in ${value}. Avoid using SQL keywords`;
+//       }
+//       return "";
+//     },
+//     brand: (value: string) => {
+//       if (!value) {
+//         return "Medicine brand is required";
+//       } else if (value.length <= 2) {
+//         return "Medicine brand must be greater than 2 characters long";
+//       } else if (value.length > 150) {
+//         return "Medicine brand must be less than or equal to 150 characters only";
+//       } else if (isSQLInjection(value)) {
+//         return `Possible SQL injection detected in "${value}". Avoid using SQL keywords`;
+//       }
+//       return "";
+//     },
+//     category: (value: string) => {
+//       if (!value) {
+//         return "Medicine category is required";
+//       }
+//       return "";
+//     },
+
+//     // Add more validation rules as needed...
+//   };
+
+//   // Loop through formField keys and apply validation rules
+//   for (const key in formField) {
+//     if (
+//       formField.hasOwnProperty(key) &&
+//       validationRules[key as keyof typeof validationRules]
+//     ) {
+//       const error = validationRules[key](formField[key], formField);
+//       if (error) {
+//         errors[key] = error;
+//         isValid = false;
+//       }
+//     }
+//   }
+
+//   return { isValid, errors };
+// };
+
+// export const matchAgeBirth = (dateString: string) => {
+//   const today = new Date();
+//   const birthDate = new Date(dateString);
+//   let age = today.getFullYear() - birthDate.getFullYear();
+//   const monthDifference = today.getMonth() - birthDate.getMonth();
+//   if (
+//     monthDifference < 0 ||
+//     (monthDifference === 0 && today.getDate() < birthDate.getDate())
+//   ) {
+//     age--;
+//   }
+//   return age;
+// };
