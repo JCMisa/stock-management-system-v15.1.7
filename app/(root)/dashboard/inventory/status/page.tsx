@@ -11,6 +11,7 @@ import { Activity, ChevronsDown, DollarSign } from "lucide-react";
 import {
   getTotalSales,
   getTotalSalesForThisMonth,
+  getTotalSalesForToday,
 } from "@/lib/actions/transaction";
 import { formatCurrency } from "@/lib/utils";
 import { Metadata } from "next";
@@ -28,13 +29,19 @@ export const metadata: Metadata = {
 const InventoryStatusPage = async () => {
   const medicinesList = await getAllMedicines();
 
-  const [totalSales, totalSalesThisMonth, totalStocks, expiredMedicinesCount] =
-    await Promise.all([
-      getTotalSales(),
-      getTotalSalesForThisMonth(),
-      getTotalStocks(),
-      getExpiredMedicinesCount(),
-    ]);
+  const [
+    totalSales,
+    totalSalesToday,
+    totalSalesThisMonth,
+    totalStocks,
+    expiredMedicinesCount,
+  ] = await Promise.all([
+    getTotalSales(),
+    getTotalSalesForToday(),
+    getTotalSalesForThisMonth(),
+    getTotalStocks(),
+    getExpiredMedicinesCount(),
+  ]);
 
   return (
     <div className="h-full flex-1 flex-col space-y-2 p-8 md:flex">
@@ -44,6 +51,7 @@ const InventoryStatusPage = async () => {
           label="Generated Sales"
           value={formatCurrency(totalSales?.data ? totalSales?.data : 0)}
           icon={<DollarSign className="w-4 h-4 text-green-500" />}
+          dailySales={totalSalesToday?.data}
           monthlySales={totalSalesThisMonth?.data}
         />
         <DataCard

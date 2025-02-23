@@ -7,12 +7,14 @@ const DataCard = ({
   label,
   value,
   icon,
+  dailySales = 0,
   monthlySales = 0,
 }: {
   type: string;
   label: string;
   value: string;
   icon: any;
+  dailySales?: number;
   monthlySales?: number;
 }) => {
   return (
@@ -27,11 +29,17 @@ const DataCard = ({
       </div>
 
       {type === "sales" && (
-        <div className="mt-3 flex items-center justify-between w-full">
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            This Month:
-          </p>
-          <p className="font-bold">{formatCurrency(monthlySales)}</p>
+        <div className="mt-3 flex items-center justify-between space-x-6 w-full overflow-auto card-scroll">
+          <div className="flex items-center gap-4">
+            <p className="text-xs text-gray-500 dark:text-gray-400">Today:</p>
+            <p className="font-bold">{formatCurrency(dailySales)}</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              This Month:
+            </p>
+            <p className="font-bold">{formatCurrency(monthlySales)}</p>
+          </div>
         </div>
       )}
     </div>

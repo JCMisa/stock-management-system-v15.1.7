@@ -52,6 +52,31 @@ export const getTotalSales = async () => {
   }
 };
 
+export const getTotalSalesForToday = async () => {
+  try {
+    // Get current date in format matching your transactionDate (assuming MM/DD/YYYY)
+    const today = moment().format("MM-DD-YYYY");
+
+    const todayRecords = await db
+      .select({
+        totalSales: Transaction.totalSales,
+      })
+      .from(Transaction)
+      .where(eq(Transaction.transactionDate, today));
+
+    const totalSales = todayRecords.reduce(
+      (sum, record) => sum + (Number(record.totalSales) || 0),
+      0
+    );
+
+    return parseStringify({
+      data: totalSales > 0 ? totalSales : null,
+    });
+  } catch (error) {
+    handleError(error);
+  }
+};
+
 export const getTotalSalesForThisMonth = async () => {
   try {
     const currentMonth = moment().format("MM");
