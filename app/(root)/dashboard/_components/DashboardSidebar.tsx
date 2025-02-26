@@ -126,7 +126,7 @@ const DashboardSidebar = () => {
         {
           icon: Newspaper,
           label: "Reports",
-          href: "/reports",
+          href: "/dashboard/reports",
           visible: ["admin", "doctor", "receptionist", "pharmacist"],
         },
       ],

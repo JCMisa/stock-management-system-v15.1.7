@@ -144,3 +144,11 @@ declare interface SupplierType {
 declare interface FieldErrors {
   [key: string]: string;
 }
+
+declare interface MedicineSalesReportType {
+  medicineId: string;
+  medicineName: string;
+  totalSales: number;
+  totalQuantitySold: number;
+  transactionCount: number;
+}
